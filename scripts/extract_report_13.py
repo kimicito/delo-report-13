@@ -1,140 +1,131 @@
+#!/usr/bin/env python3
+"""
+ДЕЛО ТЕХ — Отчёт №13: Движение по импорту
+Автоматический скрипт для извлечения отчёта с rlisystems.ru/conterra/
+
+Использование:
+    python3 extract_report_13.py --start 01.08.2026 --end 10.08.2026 --output report.xlsx
+"""
+
 import asyncio
+import argparse
 import sys
-import os
-from datetime import datetime
 from playwright.async_api import async_playwright
 
-# Default config
-DEFAULT_URL = 'https://rlisystems.ru/conterra/'
-DEFAULT_LOGIN = 'pl_11640'
-DEFAULT_PASSWORD = 'Qwerty123'
-DEFAULT_TERMINAL = 'Терминал Врангель'
+# Конфигурация
+LOGIN = "pl_11640"
+PASSWORD = "Qwerty123"
+TERMINAL = "Терминал Врангель"
+BASE_URL = "https://rlisystems.ru/conterra/"
 
-async def extract_report_13(start_date: str, end_date: str, output_dir: str = '/tmp'):
-    """
-    Extract report #13 'Движение по импорту' from ДЕЛО ТЕХ system.
-    
-    Args:
-        start_date: Start date in format DD.MM.YYYY
-        end_date: End date in format DD.MM.YYYY
-        output_dir: Directory to save screenshots
-    
-    Returns:
-        Path to the screenshot file with the report data
-    """
+# Координаты меню (viewport 1280x1024)
+MENU_DOP_USLUGI = (200, 570)
+MENU_OTCHETNOST = (150, 700)
+
+
+async def extract_report(start_date: str, end_date: str, output_file: str):
+    """Извлечь отчёт #13 за указанный период"""
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=True, 
+            headless=True,
             args=['--no-sandbox', '--disable-dev-shm-usage']
         )
-        context = await browser.new_context(viewport={'width': 1280, 'height': 1024})
-        page = await context.new_page()
+        page = await browser.new_page(viewport={'width': 1280, 'height': 1024})
         
-        print(f"[1/6] Opening {DEFAULT_URL}...")
-        await page.goto(DEFAULT_URL, wait_until='networkidle')
-        await asyncio.sleep(5)
-        
-        # Step 2: Login via JavaScript (most reliable method)
-        print("[2/6] Logging in...")
-        await page.evaluate('''() => {
-            const inputs = document.querySelectorAll('.v-textfield');
-            if (inputs.length >= 2) {
-                inputs[0].value = '''' + DEFAULT_LOGIN + '''';
-                inputs[0].dispatchEvent(new Event('input', {bubbles:true}));
-                inputs[0].dispatchEvent(new Event('change', {bubbles:true}));
-                inputs[1].value = '''' + DEFAULT_PASSWORD + '''';
-                inputs[1].dispatchEvent(new Event('input', {bubbles:true}));
-                inputs[1].dispatchEvent(new Event('change', {bubbles:true}));
-            }
-            const buttons = document.querySelectorAll('.v-button');
-            for (let b of buttons) {
-                if (b.textContent.includes('Вход')) { b.click(); break; }
-            }
-        }''')
-        
-        await asyncio.sleep(15)
-        
-        # Step 3: Select terminal
-        print("[3/6] Selecting terminal...")
-        await page.click('.v-filterselect')
-        await asyncio.sleep(2)
-        
-        # Find and click the terminal
-        await page.evaluate('''() => {
-            const items = document.querySelectorAll('.gwt-MenuItem, .v-filterselect-suggestmenu .gwt-MenuItem');
-            for (let item of items) {
-                if (item.textContent.includes('Терминал Врангель')) {
-                    item.click();
-                    return;
-                }
-            }
-        }''')
+        print("[1/6] Открываю сайт...")
+        await page.goto(BASE_URL, wait_until='domcontentloaded', timeout=60000)
         await asyncio.sleep(10)
         
-        # Step 4: Navigate to menu
-        print("[4/6] Navigating to Отчетность по обработке груза...")
-        
-        # Click on "Дополнительные услуги" arrow
-        await page.mouse.click(200, 570)
-        await asyncio.sleep(3)
-        
-        # Click on "Отчетность по обработке груза"
-        await page.mouse.click(150, 700)
-        await asyncio.sleep(10)
-        
-        # Step 5: Open report #13
-        print("[5/6] Opening report #13...")
-        await page.locator('text=13. Движение по импорту').click(timeout=5000)
-        await asyncio.sleep(5)
-        
-        # Set dates using JavaScript
-        print(f"[6/6] Setting dates: {start_date} - {end_date}...")
-        await page.evaluate(f'''() => {{
-            const dateInputs = document.querySelectorAll('.v-datefield-textfield');
-            if (dateInputs.length >= 2) {{
-                dateInputs[0].value = '{start_date}';
-                dateInputs[0].dispatchEvent(new Event('input', {{bubbles:true}}));
-                dateInputs[0].dispatchEvent(new Event('change', {{bubbles:true}}));
-                dateInputs[1].value = '{end_date}';
-                dateInputs[1].dispatchEvent(new Event('input', {{bubbles:true}}));
-                dateInputs[1].dispatchEvent(new Event('change', {{bubbles:true}}));
+        print("[2/6] Авторизация...")
+        await page.evaluate(f"""() => {{
+            var inputs = document.querySelectorAll('.v-textfield');
+            if(inputs.length >= 2) {{
+                inputs[0].value = '{LOGIN}';
+                inputs[0].dispatchEvent(new Event('input', {{bubbles:true}}));
+                inputs[0].dispatchEvent(new Event('change', {{bubbles:true}}));
+                inputs[1].value = '{PASSWORD}';
+                inputs[1].dispatchEvent(new Event('input', {{bubbles:true}}));
+                inputs[1].dispatchEvent(new Event('change', {{bubbles:true}}));
             }}
-        }}''')
+            var buttons = document.querySelectorAll('.v-button');
+            for(var b of buttons) {{
+                if(b.textContent.includes('Вход')) {{ b.click(); break; }}
+            }}
+        }}""")
+        await asyncio.sleep(20)
+        
+        print("[3/6] Навигация к меню...")
+        await page.mouse.click(*MENU_DOP_USLUGI)
+        await asyncio.sleep(3)
+        await page.mouse.click(*MENU_OTCHETNOST)
+        await asyncio.sleep(5)
+        
+        print("[4/6] Открытие отчёта #13...")
+        await page.dblclick('text=13. Движение по импорту')
+        await asyncio.sleep(5)
+        
+        print("[5/6] Установка дат...")
+        await page.evaluate(f"""() => {{
+            var inputs = document.querySelectorAll('.v-datefield-textfield');
+            if(inputs.length >= 2) {{
+                inputs[0].value = '{start_date} 00:00';
+                inputs[0].dispatchEvent(new Event('change', {{bubbles:true}}));
+                inputs[1].value = '{end_date} 23:59';
+                inputs[1].dispatchEvent(new Event('change', {{bubbles:true}}));
+            }}
+        }}""")
         await asyncio.sleep(2)
         
-        # Click ПОКАЗАТЬ ОТЧЁТ
-        await page.evaluate('''() => {
-            const buttons = document.querySelectorAll('.v-button');
-            for (let b of buttons) {
-                const text = b.textContent || b.innerText || '';
-                if (text.toUpperCase().includes('ПОКАЗАТЬ')) {
-                    b.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
-                    break;
+        print("[6/6] Генерация отчёта...")
+        await page.evaluate("""() => {
+            var buttons = document.querySelectorAll('.v-button');
+            for(var b of buttons) {
+                if(b.textContent.includes('Показать отчет')) {
+                    b.click();
+                    return true;
                 }
             }
-        }''')
+            return false;
+        }""")
+        await asyncio.sleep(20)
         
-        await asyncio.sleep(15)
-        
-        # Save screenshot
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        screenshot_path = os.path.join(output_dir, f'report_13_{timestamp}.png')
+        # Скриншот отчёта
+        screenshot_path = output_file.replace('.xlsx', '.png')
         await page.screenshot(path=screenshot_path, full_page=True)
-        print(f"✓ Screenshot saved: {screenshot_path}")
+        print(f"Скриншот сохранён: {screenshot_path}")
+        
+        print("=" * 60)
+        print("ОТЧЁТ СГЕНЕРИРОВАН")
+        print("=" * 60)
+        print(f"Период: {start_date} — {end_date}")
+        print(f"Скриншот: {screenshot_path}")
+        print()
+        print("ВАЖНО: Данные нужно извлечь вручную из скриншота и создать Excel.")
+        print("Автоматическое извлечение таблицы из Vaadin 7 невозможно.")
+        print()
+        print("Колонки отчёта:")
+        print("  1. № | 2. Контейнер | 3. ISO тип | 4. Размер | 5. Вместимость")
+        print("  6. Вес брутто | 7. Вес нетто | 8. Вес тары | 9. Трафарет")
+        print("  10. Порожний | 11. Пломбы | 12. № коносамента")
+        print("  13. Порожний как груз | 14. Дата коносамента")
+        print("  15. Наименование груза | 16. Грузоотправитель")
         
         await browser.close()
         return screenshot_path
 
+
+def main():
+    parser = argparse.ArgumentParser(description='Извлечь отчёт #13 из ДЕЛО ТЕХ')
+    parser.add_argument('--start', required=True, help='Начальная дата (ДД.ММ.ГГГГ)')
+    parser.add_argument('--end', required=True, help='Конечная дата (ДД.ММ.ГГГГ)')
+    parser.add_argument('--output', default='report_13.xlsx', help='Имя выходного файла')
+    
+    args = parser.parse_args()
+    
+    screenshot = asyncio.run(extract_report(args.start, args.end, args.output))
+    print(f"\nГотово! Скриншот: {screenshot}")
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: python extract_report_13.py <start_date> <end_date> [output_dir]")
-        print("Example: python extract_report_13.py 10.06.2026 20.06.2026 /tmp")
-        sys.exit(1)
-    
-    start_date = sys.argv[1]
-    end_date = sys.argv[2]
-    output_dir = sys.argv[3] if len(sys.argv) > 3 else '/tmp'
-    
-    screenshot = asyncio.run(extract_report_13(start_date, end_date, output_dir))
-    print(f"\nReport generated: {screenshot}")
+    main()

@@ -39,8 +39,12 @@ Login is performed via JavaScript evaluation (direct DOM manipulation) — nativ
 4. Wait 10 seconds for report list to load
 
 ### Step 4: Open Report #13
-1. Single-click (NOT double-click) on row containing "13. Движение по импорту"
+1. **Double-click** (dblclick) on row containing "13. Движение по импорту"
+   - `page.dblclick('text=13. Движение по импорту')` — Playwright text selector works
+   - Alternatively: `var evt = new MouseEvent('dblclick', {bubbles:true, cancelable:true}); row.dispatchEvent(evt);`
 2. Wait 5 seconds for dialog to open
+
+**Note:** Single click does NOT work. Double-click is required to open the date selection dialog.
 
 ### Step 5: Set Dates
 1. Find `.v-datefield-textfield` inputs (first = start, second = end)
@@ -49,14 +53,25 @@ Login is performed via JavaScript evaluation (direct DOM manipulation) — nativ
 4. Wait 2 seconds
 
 ### Step 6: Generate Report
-1. Find `.v-button` with text containing "ПОКАЗАТЬ"
-2. Dispatch MouseEvent('click') with bubbles/cancelable
-3. Wait 15 seconds for report to generate
+1. Find `.v-button` with text containing **"Показать отчет"** (case-sensitive, lowercase 'о' in 'отчет')
+2. Click using native `.click()` method:
+   ```javascript
+   var buttons = document.querySelectorAll('.v-button');
+   for(var b of buttons) {
+       if(b.textContent.includes('Показать отчет')) { b.click(); break; }
+   }
+   ```
+3. Wait 20 seconds for report to generate
+4. Report appears in the same window (no popup)
+
+**Note:** Button text is "Показать отчет" NOT "ПОКАЗАТЬ". Vaadin renders it as regular div text.
 
 ### Step 7: Extract Data
-1. Take screenshot of the generated report
-2. Read screenshot and extract all data fields
+1. Take screenshot of the generated report (`page.screenshot()`)
+2. **Read the screenshot** and manually extract all visible data fields
 3. Create Excel file using openpyxl with identical structure
+
+**Critical:** Automated table extraction via `document.querySelectorAll('table')` does NOT work — the Vaadin-rendered table is not accessible via standard DOM selectors. Manual data entry from screenshot is required.
 
 ## Report Structure
 
