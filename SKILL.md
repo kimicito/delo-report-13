@@ -102,12 +102,27 @@ Columns (in order):
 - Proper column widths
 - All data centered and wrapped
 
-## Known Limitations
+## OCR Engine Comparison
 
-- **Export button does NOT work via automation** — screenshot + manual Excel creation is required
-- Vaadin 7 ignores synthetic click events; use MouseEvent with bubbles/cancelable
-- Date validation may show red exclamation marks but report still generates
-- Menu coordinates are fixed for 1280x1024 viewport
+| Engine | Status | Accuracy | Pros | Cons |
+|--------|--------|----------|------|------|
+| **Tesseract** | ✅ Working | ~80% | Free, fast, installed | Misses rows, needs preprocessing |
+| **EasyOCR** | ❌ Failed | ~95% (expected) | Better tables | Requires PyTorch (500MB+), OOM on server |
+| **PaddleOCR** | ❌ Failed | ~90% (expected) | Lightweight | PyYAML conflict, complex install |
+| **Qwen-VL** | ⏸️ Not tested | ~99% | Best accuracy | Paid API (~$0.01/request) |
+
+**Current choice: Tesseract** (only working option on this server)
+
+**Preprocessing applied:**
+- Image upscaled 2x
+- Contrast +200%
+- Sharpness +200%
+- Table area cropped
+- Russian + English language model
+
+**Accuracy:** 7-8 containers detected out of 9 (~80-90%)
+
+**Recommendation:** Always verify output against screenshot. For 100% accuracy, consider Qwen-VL API.
 
 ## Usage
 
